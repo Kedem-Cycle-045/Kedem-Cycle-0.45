@@ -53,6 +53,9 @@ If these signals are not detected, the theory must be considered refuted.
 ## Structure
 
 - `papers/` — monograph and preprints (PDF)
+  - `Kedem-Cycle-v18-EN.pdf` — monograph (English, v18)
+  - `Kedem-Cycle-v18-RU.pdf` — monograph (Russian, v18)
+  - `_Kedem_Cycle_Omega.pdf` — preprint on particle masses
 - `code/` — Python code for verification
 
 ## How to run
@@ -65,6 +68,7 @@ python code/main.py
 Links
 
 · Monograph (English, v18): https://doi.org/10.5281/zenodo.20364677
+· Particle Masses preprint: https://doi.org/10.5281/zenodo.20416070
 · Information Transformation Law: https://doi.org/10.5281/zenodo.21782683
 · Preprint.ru (Russian version): https://doi.org/10.24108/preprints-3115368
 
@@ -81,3 +85,5 @@ MIT License (code). Texts (PDF) — CC BY 4.0.
 
 
 ```
+
+
