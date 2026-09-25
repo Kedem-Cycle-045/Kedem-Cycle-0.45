@@ -56,6 +56,7 @@ If these signals are not detected, the theory must be considered refuted.
   - `Kedem-Cycle-v18-EN.pdf` — monograph (English, v18)
   - `Kedem-Cycle-v18-RU.pdf` — monograph (Russian, v18)
   - `_Kedem_Cycle_Omega.pdf` — preprint on particle masses
+- `_Kedem_Cycle_Transformation.pdf` — Information Transformation Law
 - `code/` — Python code for verification
 
 ## How to run
