@@ -228,10 +228,8 @@ MIT License (code). Texts (PDF) — CC BY 4.0.
 
 ## Как запустить
 
-```bash
-pip install snappy numpy scipy
-python code/main.py
-```
+pip install -r requirements.txt
+python code/code/main.py --verify
 
 ## Пример вывода
 
