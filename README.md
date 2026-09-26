@@ -226,8 +226,9 @@ MIT License (code). Texts (PDF) — CC BY 4.0.
 - `LICENSE` — лицензия MIT
 - `code/` — Python-код для проверки
 
-## Как запустить
+## How to run
 
+```bash
 pip install -r requirements.txt
 python code/code/main.py --verify
 
