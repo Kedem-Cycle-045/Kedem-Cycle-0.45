@@ -120,7 +120,7 @@ Belmasova, I. Yu. (2026). *Particle Masses from the Geometry of the Hyperbolic 3
 Belmasova, I. Yu. (2026). *Information Transformation Law: Three Transitions, Three Quanta, and the Spiral Structure of Reality*. Zenodo. https://doi.org/10.5281/zenodo.21782683
 
 **Repository:**
-Belmasova, I. Yu. (2026). *Kedem-Cycle Ω* [GitHub repository]. https://github.com/Kedem-Cycle-045/Kedem-Cycle-045
+Belmasova, I. Yu. (2026). *Kedem-Cycle Ω* [GitHub repository]. https://github.com/Kedem-Cycle-045/Kedem-Cycle-0.45
 
 ## License
 
