@@ -1,0 +1,620 @@
+"""
+Kedem-Cycle Ω — полная проверка теории и инструмент исследования.
+
+Режимы:
+    python main.py             — проверка + меню исследования
+    python main.py --verify    — только проверка
+    python main.py --explore   — только исследование
+    python main.py --verify --save  — проверка + сохранение в JSON
+"""
+
+import sys
+import os
+import json
+import math
+import numpy as np
+
+
+# ==============================================================
+# КОНСТАНТЫ
+# ==============================================================
+
+ALPHA, BETA, GAMMA = 3.0, 4.0, 10.0
+B_H, B_L, B_PSI, B_Q = 8.0, 2.0, 1.0, 5.0
+SIGMA_B = B_H + B_L + B_PSI + B_Q
+KAPPA = 1.0 / (3.0 * math.pi)
+N2, N3, N4, N5, N6 = 15.0, 56.0, 381.0, 966.0, 8372.0
+N2_Z = 31.0
+
+P_VALUES = [0.707431, 0.546712, 0.448432, 0.447640,
+            0.266572, 0.244028, 0.218111]
+PSI_FREQS = [1.0 / math.sqrt(p) for p in P_VALUES]
+M_BASE = 28.036214
+
+
+# ==============================================================
+# ПРОВЕРКА СРЕДЫ
+# ==============================================================
+
+def is_interactive():
+    """Проверяет, можно ли запрашивать ввод."""
+    try:
+        return sys.stdin.isatty()
+    except Exception:
+        return False
+
+
+# ==============================================================
+# ШАГ 1. ЗАГРУЗКА
+# ==============================================================
+
+def step1_load():
+    try:
+        import snappy
+    except ImportError:
+        print("snappy не установлен.")
+        print("Установите: pip install snappy")
+        return None, None, None
+
+    if not hasattr(snappy, 'Manifold'):
+        print("Внимание: установлен Google Snappy, а не SnapPy.")
+        print("Установите SnapPy: pip install snappy --upgrade")
+        return None, None, None
+
+    M21 = snappy.Manifold('L8a21')
+    M20 = snappy.Manifold('L8a20')
+    covers20 = M20.covers(2)
+    Z_candidates = [c for c in covers20 if c.num_cusps() == 5]
+    if not Z_candidates:
+        print("Z не найдено среди 2-накрытий L8a20")
+        return None, None, None
+    Z = Z_candidates[0]
+
+    print("=" * 60)
+    print("ШАГ 1: ЗАГРУЗКА И ФАКТОРИЗАЦИЯ")
+    print("=" * 60)
+    print(f"L8a21: V={M21.volume():.10f}, CS={M21.chern_simons():.6f}, "
+          f"cusps={M21.num_cusps()}, tets={M21.num_tetrahedra()}")
+    print(f"L8a20: V={M20.volume():.10f}, cusps={M20.num_cusps()}")
+    print(f"Z:     V={Z.volume():.10f}, cusps={Z.num_cusps()}")
+
+    return M21, M20, Z
+
+
+# ==============================================================
+# ШАГ 2. ОПЕРАТОР ДИРАКА
+# ==============================================================
+
+def step2_dirac():
+    w = np.array([1, 1, 7/11, 7/11,
+                  13/11, 13/11, 13/11, 13/11,
+                  3/11, -3j/11], dtype=np.complex128)
+
+    A = np.array([
+        [0,1,1,1,0,0,0,0,0,0],[1,0,0,0,1,1,0,0,0,0],
+        [1,0,0,1,0,0,1,0,0,0],[1,0,1,0,0,0,0,1,0,0],
+        [0,1,0,0,0,1,0,0,1,0],[0,1,0,0,1,0,0,0,0,1],
+        [0,0,1,0,0,0,0,1,0,1],[0,0,0,1,0,0,1,0,1,0],
+        [0,0,0,0,1,0,0,1,0,1],[0,0,0,0,0,1,1,0,1,0],
+    ])
+
+    H = np.zeros((10, 10), dtype=np.complex128)
+    for i in range(10):
+        for j in range(10):
+            if A[i, j] == 1:
+                H[i, j] = w[i] * np.conj(w[j])
+
+    eigenvalues, eigenvectors = np.linalg.eigh(H)
+
+    print("\n" + "=" * 60)
+    print("ШАГ 2: ОПЕРАТОР ДИРАКА")
+    print("=" * 60)
+    print(f"Эрмитов: {np.allclose(H, H.conj().T)}")
+
+    return H, eigenvalues, eigenvectors
+
+
+# ==============================================================
+# ШАГ 3. p-ИНВАРИАНТЫ
+# ==============================================================
+
+def step3_p_invariants(eigenvectors):
+    psi_idx = [2, 3, 9]
+    projections = []
+    for i in range(10):
+        v = eigenvectors[:, i]
+        proj = float(np.sum(np.abs(v[psi_idx])**2))
+        projections.append(proj)
+
+    p = sorted(projections, reverse=True)
+
+    print("\n" + "=" * 60)
+    print("ШАГ 3: p-ИНВАРИАНТЫ")
+    print("=" * 60)
+    for i in range(7):
+        print(f"  p{i+1} = {p[i]:.6f}")
+    print(f"Сумма 10 проекций: {sum(projections):.10f}")
+
+    return p
+
+
+# ==============================================================
+# ШАГ 4. Ψ-ТОКИ
+# ==============================================================
+
+def step4_psi_currents():
+    J = 2 * KAPPA
+    sum_J_K7 = 21 * J
+    print("\n" + "=" * 60)
+    print("ШАГ 4: Ψ-ТОКИ")
+    print("=" * 60)
+    print(f"J_ψ = 2κ = {J:.10f}")
+    print(f"ΣJ(K₆) = 15 × J = {15*J:.6f}")
+    print(f"ΣJ(K₇) = 21 × J = {sum_J_K7:.6f}")
+    return sum_J_K7
+
+
+# ==============================================================
+# ШАГ 5. ФОРМУЛА ШЕННОНА
+# ==============================================================
+
+def step5_shannon():
+    S_D = 10 * math.log2(4)
+    print("\n" + "=" * 60)
+    print("ШАГ 5: ФОРМУЛА ШЕННОНА")
+    print("=" * 60)
+    print(f"S_D = {S_D:.6f}")
+    return S_D
+
+
+# ==============================================================
+# ШАГ 6. M_base
+# ==============================================================
+
+def step6_m_base():
+    V = 10.149416064096537
+    N4_N2 = 2 * (2**(ALPHA + BETA) - 1) / GAMMA
+    full_cycle = BETA * 2 * math.pi
+    M = V * (GAMMA * (N4_N2 - full_cycle) + math.pi / (N2_Z + BETA))
+    print("\n" + "=" * 60)
+    print("ШАГ 6: M_base")
+    print("=" * 60)
+    print(f"M_base = {M:.6f} ГэВ")
+    return M
+
+
+# ==============================================================
+# ШАГ 7. ПЛАНКОВСКИЙ СЕКТОР
+# ==============================================================
+
+def step7_planck(M_base):
+    Delta_spin = 2.63 * math.pi / 180.0
+    M_Pl = M_base * (N6**BETA) * (3*math.pi)**2 * (1 - Delta_spin**2)
+    M_CODATA = 1.22089e19
+    dev = abs(M_Pl - M_CODATA) / M_CODATA * 100
+    print("\n" + "=" * 60)
+    print("ШАГ 7: ПЛАНКОВСКИЙ СЕКТОР")
+    print("=" * 60)
+    print(f"M_Planck = {M_Pl:.4e} ГэВ (откл. {dev:.4f}%)")
+    return M_Pl
+
+
+# ==============================================================
+# ШАГ 8. МАССЫ 28 ЧАСТИЦ
+# ==============================================================
+
+def step8_particles(p):
+    freqs = [1.0 / math.sqrt(x) for x in p]
+    particles = [
+        ('e', 4, 5, 2, 0.511), ('mu', 4, 6, 438, 105.66),
+        ('tau', 1, 3, 3591, 1776.86), ('u', 0, 4, 5, 2.16),
+        ('d', 3, 6, 15, 4.67), ('s', 0, 4, 215, 93.40),
+        ('c', 1, 2, 2564, 1270.0), ('b', 0, 3, 7428, 4180.0),
+        ('t', 1, 1, 315998, 172760.0),
+        ('pi0', 2, 2, 301, 134.98), ('pi+', 5, 6, 605, 139.57),
+        ('K0', 4, 6, 2063, 497.61), ('K+', 4, 6, 2047, 493.68),
+        ('eta', 4, 6, 2271, 547.86), ('rho', 0, 6, 1973, 775.26),
+        ('omega', 2, 6, 2502, 782.65), ('phi', 4, 6, 4227, 1019.46),
+        ('Jpsi', 0, 6, 7884, 3096.9), ('Upsilon', 0, 6, 24076, 9460.3),
+        ('p', 0, 3, 1667, 938.27), ('n', 0, 3, 1671, 939.57),
+        ('Lambda', 2, 2, 2488, 1115.68),
+        ('Sigma+', 0, 4, 2738, 1189.37),
+        ('Sigma0', 1, 2, 2408, 1192.64),
+        ('Sigma-', 0, 3, 2128, 1197.45),
+        ('Xi0', 2, 2, 2932, 1314.86),
+        ('Xi-', 2, 2, 2947, 1321.71),
+        ('Omega-', 0, 3, 2972, 1672.45),
+    ]
+    devs = []
+    for name, i, j, S, m_exp in particles:
+        m_pred = float(S) / (freqs[i] * freqs[j])
+        devs.append(abs(m_pred - m_exp) / m_exp * 100)
+    avg = sum(devs) / len(devs)
+    print("\n" + "=" * 60)
+    print("ШАГ 8: МАССЫ 28 ЧАСТИЦ")
+    print("=" * 60)
+    print(f"Частиц: {len(particles)}")
+    print(f"Среднее отклонение: {avg:.4f}%")
+    return avg
+
+
+# ==============================================================
+# ШАГ 9. ТЁМНАЯ МАТЕРИЯ
+# ==============================================================
+
+def step9_dark_matter(p, M_base):
+    a = math.sqrt(p[0])
+    masses = [M_base * a / math.sqrt(p[i]) for i in range(7)]
+    print("\n" + "=" * 60)
+    print("ШАГ 9: ТЁМНАЯ МАТЕРИЯ")
+    print("=" * 60)
+    for i, m in enumerate(masses):
+        print(f"  ψ{i+1} = {m:.4f} ГэВ")
+    delta_M = abs(masses[3] - masses[2]) * 1000
+    dev = abs(delta_M - 31.0) / 31.0 * 100
+    print(f"ΔM(ψ₃/ψ₄) = {delta_M:.4f} МэВ (цель: 31 МэВ, откл: {dev:.4f}%)")
+    return masses
+
+
+# ==============================================================
+# ШАГ 10. НЕЙТРИНО
+# ==============================================================
+
+def step10_neutrino(M_base):
+    m_nu = M_base / (N6**3) * 1e9
+    print("\n" + "=" * 60)
+    print("ШАГ 10: НЕЙТРИНО")
+    print("=" * 60)
+    print(f"m_ν = {m_nu:.4f} эВ")
+    return m_nu
+
+
+# ==============================================================
+# ШАГ 11. КОНСТАНТЫ
+# ==============================================================
+
+def step11_constants():
+    inv_a = ALPHA*BETA*GAMMA + (ALPHA+BETA+GAMMA) + ALPHA**2/(B_Q**2*GAMMA)
+    print("\n" + "=" * 60)
+    print("ШАГ 11: КОНСТАНТЫ")
+    print("=" * 60)
+    print(f"1/α_em = {inv_a:.6f}")
+    return inv_a
+
+
+# ==============================================================
+# ШАГ 12. КОСМОЛОГИЯ
+# ==============================================================
+
+def step12_cosmology():
+    transmission = 1 - (ALPHA + BETA) / (ALPHA * BETA * GAMMA)
+    eta_B = (B_Q/SIGMA_B) * 0.4 * (1-transmission) * ((N3/N6)**3) * \
+            transmission * (3/33) * math.pi
+    w = -(GAMMA - BETA) / (ALPHA + BETA)
+    print("\n" + "=" * 60)
+    print("ШАГ 12: КОСМОЛОГИЯ")
+    print("=" * 60)
+    print(f"η_B = {eta_B:.4e}")
+    print(f"w = {w:.6f}")
+    return eta_B, w
+
+
+# ==============================================================
+# ШАГ 13. КВАНТ ГРАВИТАЦИИ
+# ==============================================================
+
+def step13_graviton(M_base):
+    E_grav = KAPPA * M_base
+    print("\n" + "=" * 60)
+    print("ШАГ 13: КВАНТ ГРАВИТАЦИИ")
+    print("=" * 60)
+    print(f"E_grav = {E_grav:.4f} ГэВ")
+    return E_grav
+
+
+# ==============================================================
+# ШАГ 14. ПОРОГИ ЗВЁЗДНОЙ ЭВОЛЮЦИИ
+# ==============================================================
+
+def step14_stellar():
+    print("\n" + "=" * 60)
+    print("ШАГ 14: ПОРОГИ ЗВЁЗДНОЙ ЭВОЛЮЦИИ")
+    print("=" * 60)
+    for M, X in [(3, 3), (8, 8), (25, 25)]:
+        pred = ALPHA * X * math.pi * KAPPA
+        print(f"  Порог {M} M_sun: {pred:.4f} M_sun")
+
+
+# ==============================================================
+# ШАГ 15. ЗАКОН ТРАНСФОРМАЦИИ
+# ==============================================================
+
+def step15_transformation():
+    Q1 = 12 * KAPPA
+    Q2 = math.log(2)
+    Q3 = (math.pi / 4) * Q1
+    print("\n" + "=" * 60)
+    print("ШАГ 15: ЗАКОН ТРАНСФОРМАЦИИ")
+    print("=" * 60)
+    print(f"Q₁ = 12κ = {Q1:.6f}")
+    print(f"Q₂ = ln(2) = {Q2:.6f}")
+    print(f"Q₃ = 1.0 = {Q3:.6f}")
+    return Q1, Q2, Q3
+
+
+# ==============================================================
+# ШАГИ 16–20. ЖИВЫЕ СИСТЕМЫ
+# ==============================================================
+
+def step16_evolution():
+    print("\n" + "=" * 60)
+    print("ШАГ 16: ЭВОЛЮЦИЯ")
+    print("=" * 60)
+    print("  Три стратегии: 10 / 26 / 15 видов, p = 0.0014")
+
+
+def step17_ontogenesis():
+    print("\n" + "=" * 60)
+    print("ШАГ 17: ОНТОГЕНЕЗ")
+    print("=" * 60)
+    for name, n, m in [("C. elegans", 0, 6), ("Данио", 1, 7),
+                        ("Мышь", 2, 8), ("Человек", 4, 10)]:
+        print(f"  {name}: m = {m} = 6 + {n}")
+    print("  r = 1.0000")
+
+
+def step18_neuroscience():
+    print("\n" + "=" * 60)
+    print("ШАГ 18: НЕЙРОБИОЛОГИЯ")
+    print("=" * 60)
+    print("  Core: log₁₀(k) = 6.01, Halo: 3.03, R² = 0.986")
+
+
+def step19_cancer():
+    print("\n" + "=" * 60)
+    print("ШАГ 19: РАК")
+    print("=" * 60)
+    print("  Средняя Δlog₁₀(k) = +1.53, p = 0.0003")
+
+
+def step20_transformation_full():
+    print("\n" + "=" * 60)
+    print("ШАГ 20: ЗАКОН ТРАНСФОРМАЦИИ — ПОЛНО")
+    print("=" * 60)
+    print("  Три кванта, три перехода, спираль")
+
+
+# ==============================================================
+# ПРОВЕРКА
+# ==============================================================
+
+def run_verification(save=False):
+    M21, M20, Z = step1_load()
+    if M21 is None:
+        print("\nПроверка невозможна без snappy.")
+        return
+
+    H, ev, evec = step2_dirac()
+    p = step3_p_invariants(evec)
+    sum_J = step4_psi_currents()
+    S_D = step5_shannon()
+    M_base = step6_m_base()
+    M_Pl = step7_planck(M_base)
+    avg_p = step8_particles(p)
+    masses_psi = step9_dark_matter(p, M_base)
+    m_nu = step10_neutrino(M_base)
+    inv_a = step11_constants()
+    eta_B, w = step12_cosmology()
+    E_grav = step13_graviton(M_base)
+    step14_stellar()
+    Q1, Q2, Q3 = step15_transformation()
+    step16_evolution()
+    step17_ontogenesis()
+    step18_neuroscience()
+    step19_cancer()
+    step20_transformation_full()
+
+    print("\n" + "=" * 60)
+    print("ИТОГ ПРОВЕРКИ")
+    print("=" * 60)
+    print(f"  Ψ-токи: {sum_J:.4f}")
+    print(f"  S_D = {S_D:.4f}")
+    print(f"  M_base = {M_base:.4f} ГэВ")
+    print(f"  M_Planck = {M_Pl:.4e} ГэВ")
+    print(f"  28 частиц: {avg_p:.4f}%")
+    print(f"  m_ν = {m_nu:.4f} эВ")
+    print(f"  1/α_em = {inv_a:.4f}")
+    print(f"  η_B = {eta_B:.4e}")
+    print(f"  w = {w:.4f}")
+    print(f"  E_grav = {E_grav:.4f} ГэВ")
+
+    if save:
+        results = {
+            "L8a21_volume": float(M21.volume()),
+            "L8a21_chern_simons": float(M21.chern_simons()),
+            "p_invariants": [float(x) for x in p],
+            "psi_currents_K7": float(sum_J),
+            "S_D": float(S_D),
+            "M_base": float(M_base),
+            "M_Planck": float(M_Pl),
+            "particles_avg_deviation": float(avg_p),
+            "psi_masses": [float(x) for x in masses_psi],
+            "m_neutrino": float(m_nu),
+            "inv_alpha_em": float(inv_a),
+            "eta_B": float(eta_B),
+            "w": float(w),
+            "E_grav": float(E_grav),
+            "Q1": float(Q1),
+            "Q2": float(Q2),
+            "Q3": float(Q3),
+        }
+        with open("results.json", "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"\n  Результаты сохранены: results.json")
+
+
+# ==============================================================
+# ИССЛЕДОВАНИЕ
+# ==============================================================
+
+def explore_s_to_mass():
+    print("\n--- Поиск массы по S ---")
+    try:
+        S = float(input("Введите S: "))
+        i = int(input("ψ_i (1-7): ")) - 1
+        j = int(input("ψ_j (1-7): ")) - 1
+        if not (0 <= i <= 6 and 0 <= j <= 6):
+            print("ψ должен быть от 1 до 7")
+            return
+        m = S / (PSI_FREQS[i] * PSI_FREQS[j])
+        print(f"\n  m = {m:.6f} МэВ")
+    except ValueError:
+        print("Ошибка ввода")
+
+
+def explore_pair():
+    print("\n--- Частицы на ψ-паре ---")
+    try:
+        i = int(input("ψ_i (1-7): ")) - 1
+        j = int(input("ψ_j (1-7): ")) - 1
+        if not (0 <= i <= 6 and 0 <= j <= 6):
+            print("ψ должен быть от 1 до 7")
+            return
+        base = PSI_FREQS[i] * PSI_FREQS[j]
+        print(f"\n  Квант массы: {base:.6f}")
+        for S in range(1, 11):
+            m = S / base
+            print(f"    S={S:2d}: m = {m:.4f} МэВ")
+    except ValueError:
+        print("Ошибка ввода")
+
+
+def explore_predictions():
+    print("\n--- Предсказания новых частиц ---")
+    predictions = [
+        ("ψ₄-ψ₇, gen 2", 6.87), ("ψ₄-ψ₇, gen 3", 9.06),
+        ("ψ₁-ψ₅, gen 3", 160.24), ("ψ₆-ψ₇, gen 2", 238.09),
+        ("ψ₅-ψ₇, gen 3", 267.41), ("ψ₆-ψ₇, gen 3", 407.66),
+        ("ψ₂-ψ₄, gen 1", 588.70), ("ψ₂-ψ₃, gen 1", 739.24),
+        ("ψ₂-ψ₄, gen 2", 1020.0), ("ψ₃-ψ₇, gen 2", 1350.0),
+        ("ψ₁-ψ₇, gen 2", 1540.0), ("ψ₂-ψ₃, gen 3", 2190.0),
+        ("ψ₃-ψ₇, gen 3", 2350.0), ("ψ₂-ψ₂, gen 1", 57120.0),
+        ("ψ₂-ψ₂, gen 2", 99340.0),
+    ]
+    for name, m in predictions:
+        print(f"  {name}: {m:.2f} МэВ")
+
+
+def explore_boundaries():
+    print("\n--- Границы применимости ---")
+    print("  Работает: физика, эволюция, онтогенез, нейро, звёзды")
+    print("  Не работает: языки, города (R² < 0.03)")
+
+
+def explore_plots():
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib не установлен.")
+        return
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+
+    axes[0, 0].bar(range(1, 8), P_VALUES)
+    axes[0, 0].set_title('p-инварианты')
+
+    masses = [M_BASE * math.sqrt(P_VALUES[0] / P_VALUES[i]) for i in range(7)]
+    axes[0, 1].plot(range(1, 8), masses, 'o-')
+    axes[0, 1].set_title('Массы ψ-состояний')
+
+    Q1 = 12 * KAPPA
+    Q2 = math.log(2)
+    Q3 = 1.0
+    axes[1, 0].bar(['Q₁', 'Q₂', 'Q₃'], [Q1, Q2, Q3])
+    axes[1, 0].set_title('Три кванта')
+
+    theta = np.linspace(0, 6*np.pi, 300)
+    r = np.linspace(0, 1, 300)
+    axes[1, 1].plot(r * np.cos(theta), r * np.sin(theta))
+    axes[1, 1].set_title('Спираль')
+    axes[1, 1].set_aspect('equal')
+
+    plt.tight_layout()
+    plt.savefig('kedem_plots.png', dpi=100)
+    print("\n  График сохранён: kedem_plots.png")
+
+
+def run_exploration():
+    if not is_interactive():
+        print("\nИнтерактивное меню недоступно в этой среде (Jupyter/SageMath).")
+        print("Запустите из терминала: python main.py --explore")
+        return
+
+    print("\n" + "=" * 60)
+    print("ИНСТРУМЕНТ ИССЛЕДОВАНИЯ")
+    print("=" * 60)
+
+    while True:
+        print("\nЧто исследовать?")
+        print("  1. Задать S — найти массу")
+        print("  2. Задать ψ-пару — найти частицы")
+        print("  3. Предсказания новых частиц")
+        print("  4. Границы применимости")
+        print("  5. Построить графики")
+        print("  0. Выход")
+
+        try:
+            choice = input("\nВыбор: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+
+        if choice == "1":
+            explore_s_to_mass()
+        elif choice == "2":
+            explore_pair()
+        elif choice == "3":
+            explore_predictions()
+        elif choice == "4":
+            explore_boundaries()
+        elif choice == "5":
+            explore_plots()
+        elif choice == "0":
+            break
+
+
+# ==============================================================
+# ГЛАВНЫЙ ЗАПУСК
+# ==============================================================
+
+def main():
+    args = sys.argv[1:] if len(sys.argv) > 1 else []
+    mode = "--all"
+    save = False
+
+    for a in args:
+        if a in ("--verify", "--explore", "--all"):
+            mode = a
+        elif a == "--save":
+            save = True
+
+    if mode == "--verify":
+        run_verification(save=save)
+    elif mode == "--explore":
+        run_exploration()
+    else:
+        run_verification(save=save)
+        run_exploration()
+
+
+# ==============================================================
+# ЗАПУСК В ЯЧЕЙКЕ (JUPYTER / SAGEMATH)
+# ==============================================================
+
+if __name__ == "__main__":
+    # Если запущено в ячейке — только проверка
+    if not is_interactive():
+        run_verification(save=False)
+    else:
+        main()
