@@ -51,8 +51,8 @@ If these signals are not detected, the theory must be considered refuted.
 
 ## Structure
 
-- `Kedem-Cycle-v19-EN.pdf` — monograph (English, v19)
-- `Kedem-Cycle-v19-RU.pdf` — monograph (Russian, v19)
+- `Kedem-Cycle-v20-EN.pdf` — monograph (English, v20)
+- `Kedem-Cycle-v20-RU.pdf` — monograph (Russian, v20)
 - `_Kedem_Cycle_Omega.pdf` — preprint on particle masses
 - `Information-Transformation-Law.pdf` — Information Transformation Law
 - `CITATION.cff` — citation metadata
